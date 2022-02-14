@@ -2,10 +2,12 @@
 Some Web tools
 ## For gene information search 
 Your could type any gene information into the search box 
+
 http://124.223.104.41:3838/id/
 
 ## For gene id batch conversion
 http://124.223.104.41:3838/id_batch_convert/
+
 Only suppport NCBI id into Silkdb3.0 and reciprocally or NCBI id into kaikibase id reciprocally.
 The uploaded file must be an Excel file (.xls,.xlsx) and conforms to the following format:
 

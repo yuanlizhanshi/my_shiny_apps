@@ -1,5 +1,5 @@
 # my_shiny_apps
-Some Web tools
+Some Web tools created by R package shiny
 ## For gene information search 
 Your could type any gene information into the search box 
 

@@ -51,20 +51,20 @@ ID_conversion <- function(df,TOtype){
   id_vec <- df[[1]]
   switch(
     TOtype,
-    'KWMT2NCBI' = map_chr(id_vec,KWMT2NCBI_trans),
-    'NCBI2KWMT' = map_chr(id_vec,NCBI2KWMT_trans),
-    'CN_3G2NCBI' = map_chr(id_vec,CN_3G2NCBI_trans),
-    'NCBI2CN_3G' = map_chr(id_vec,NCBI2CN_3G_trans)
+    'Kaikobase ID to NCBI ID' = map_chr(id_vec,KWMT2NCBI_trans),
+    'NCBI ID tO Kaikobase ID' = map_chr(id_vec,NCBI2KWMT_trans),
+    'Silkdb3.0 ID to NCBI ID' = map_chr(id_vec,CN_3G2NCBI_trans),
+    'NCBI ID tO Silkdb3.0 ID' = map_chr(id_vec,NCBI2CN_3G_trans)
   )
 }
 
-all_choices <- c('KWMT2NCBI','NCBI2KWMT','CN_3G2NCBI','NCBI2CN_3G')
+all_choices <- c('Kaikobase ID to NCBI ID','NCBI ID tO Kaikobase ID','Silkdb3.0 ID to NCBI ID','NCBI ID tO Silkdb3.0 ID')
 
 getcolnames <- function(choices){
-  case_when(choices == 'KWMT2NCBI' ~ c('Kaikobase_id','NCBI_id'),
-            choices == 'NCBI2KWMT' ~ c('NCBI_id','Kaikobase_id'),
-            choices == 'CN_3G2NCBI' ~ c('Silkdb3.0_id','NCBI_id'),
-            choices == 'NCBI2CN_3G' ~ c('NCBI_id','Silkdb3.0_id'),
+  case_when(choices == 'Kaikobase ID to NCBI ID' ~ c('Kaikobase_id','NCBI_id'),
+            choices == 'NCBI ID tO Kaikobase ID' ~ c('NCBI_id','Kaikobase_id'),
+            choices == 'Silkdb3.0 ID to NCBI ID' ~ c('Silkdb3.0_id','NCBI_id'),
+            choices == 'NCBI ID tO Silkdb3.0 ID' ~ c('NCBI_id','Silkdb3.0_id'),
   )
 }
 

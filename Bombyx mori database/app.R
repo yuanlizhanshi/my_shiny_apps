@@ -9,7 +9,6 @@
 
 library(shiny)
 library(tidyverse)
-library(data.table)
 library(AnnotationHub)
 library(GO.db)
 

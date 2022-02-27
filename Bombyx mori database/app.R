@@ -10,7 +10,6 @@
 library(shiny)
 library(tidyverse)
 library(AnnotationHub)
-library(GO.db)
 
 load('KWMT2NCBI.rdata')
 load('CN_3G2NCBI.rdata')
@@ -18,6 +17,7 @@ load('all_ids.rdata')
 load('KEGG_info.rdata')
 load('hub.rdata')
 load('domain_info.rdata')
+load('GO_info.rdata')
 ###load database
 hub <- AnnotationHub::AnnotationHub()
 bmor_orgdb <- hub[['AH97101']]

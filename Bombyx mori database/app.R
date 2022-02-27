@@ -18,6 +18,7 @@ load('KEGG_info.rdata')
 load('hub.rdata')
 load('domain_info.rdata')
 load('GO_info.rdata')
+load('PMID_title.rdata')
 ###load database
 hub <- AnnotationHub::AnnotationHub()
 bmor_orgdb <- hub[['AH97101']]
@@ -155,7 +156,11 @@ ui <- fluidPage(
     ),
   ),
   fluidRow(
-    verbatimTextOutput('PMID'),
+    verbatimTextOutput('paper_info'),
+    div(
+      tableOutput('PMID'),
+      style = "font-size:80%"
+      ),
   ),
   fluidRow(
     verbatimTextOutput('des'),
@@ -267,10 +272,13 @@ server <- function(input, output){
       return(GO_res_df)
     })
   })
-  output$PMID <- renderText({
+  output$paper_info <- renderText({
+    paste0('Relevant paper:')
+  })
+  output$PMID <- renderTable({
     tran_res <- AnnotationDbi::select(bmor_orgdb,keys = NCBI_ID() ,columns  = 'PMID',keytype = 'SYMBOL')
     PMID_ID <- tran_res[names(tran_res) ==  'PMID' ][[1]] %>% unique()
-    paste0('PMID(Related paper):  ',paste0(PMID_ID,collapse = ';'))
+    PMID_res %>% filter(PMID == PMID_ID)
   })
   output$des <- renderText({
     Kaikobase_gene_des <- KWMT2NCBI[str_which(KWMT2NCBI$NCBI_ID,NCBI_ID()),]$Description %>% unique() %>% add_info()

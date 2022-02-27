@@ -18,6 +18,7 @@ load('CN_3G2NCBI.rdata')
 load('all_ids.rdata')
 load('KEGG_info.rdata')
 load('hub.rdata')
+load('domain_info.rdata')
 ###load database
 hub <- AnnotationHub::AnnotationHub()
 bmor_orgdb <- hub[['AH97101']]
@@ -144,6 +145,17 @@ ui <- fluidPage(
     )
   ),
   fluidRow(
+    verbatimTextOutput('Protein_domain_infomation'),
+    div(
+      tableOutput('domian'),
+      style = "font-size:80%"
+    ),
+    div(
+      uiOutput("Protein_domain_note"),
+      style = "font-size:70%"
+    ),
+  ),
+  fluidRow(
     verbatimTextOutput('PMID'),
   ),
   fluidRow(
@@ -202,6 +214,22 @@ server <- function(input, output){
     tran_res <- AnnotationDbi::select(bmor_orgdb,keys = NCBI_ID() ,columns  = 'ENTREZID',keytype = 'SYMBOL')
     ENTREZ_ID <- tran_res[names(tran_res) ==  'ENTREZID' ][[1]] %>% unique()
     map_dfr(ENTREZ_ID,function(x)keggdata_id[str_which(keggdata_id$ENTREZID,x),-2])
+  })
+  output$Protein_domain_infomation <- renderText({
+    paste0('Protein_domain_infomation')
+  })
+  output$Protein_domain_note <- renderUI({
+    div(tags$p("Note:For more domain infomation: Please entry",style = "display: inline;"),
+        a("Pfam", href="http://pfam.xfam.org/",style = "display: inline;"),
+        tags$p("and",style = "display: inline;"),
+        a("Interpro", href="https://www.ebi.ac.uk/interpro/",style = "display: inline;"),
+        tags$p(' ')
+    )
+  })
+  output$domian <- renderTable({
+    tran_res <- AnnotationDbi::select(bmor_orgdb,keys = NCBI_ID() ,columns  = 'ENTREZID',keytype = 'SYMBOL')
+    ENTREZ_ID <- tran_res[names(tran_res) ==  'ENTREZID' ][[1]] %>% unique()
+    domain_info %>% filter(Gene %in% ENTREZ_ID) 
   })
   output$Alias <- renderText({
     Alias_gene <- CN_3G2NCBI[str_which(CN_3G2NCBI$SYMBOL,NCBI_ID()),]$Gene_name

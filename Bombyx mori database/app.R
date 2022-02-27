@@ -21,7 +21,7 @@ load('GO_info.rdata')
 ###load database
 hub <- AnnotationHub::AnnotationHub()
 bmor_orgdb <- hub[['AH97101']]
-GO <- as.list(GOTERM)
+
 find_gene <- function(x){
   if(str_detect(x,'KWMT')){
     NCBI_ID_res <- KWMT2NCBI[str_which(KWMT2NCBI$KaikobaseID,x),]$NCBI_ID

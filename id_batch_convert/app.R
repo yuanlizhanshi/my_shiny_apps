@@ -109,9 +109,6 @@ server <- function(input, output, session) {
   output$preview <- renderDataTable({
     convert_res()
   },
-  fluidRow(
-    downloadButton('downloadPlot', 'Download Plot')
-  ),
   options = list(pageLength = 20)
   )
   output$download <- downloadHandler(

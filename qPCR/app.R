@@ -30,7 +30,6 @@ bar_plot <- function(df,pvalue,x_labels = c('Control','Treat')){
     guides(fill = 'none')+
     theme_prism()+
     scale_fill_manual(values = c("#69b3a2","#836FFF"))+
-    scale_x_discrete(labels = x_labels)+
     ylim(NA,max(df$Fold,na.rm = T)+0.2)+
     theme(axis.title.x = element_blank(),
           aspect.ratio = 1.3)+
@@ -39,7 +38,8 @@ bar_plot <- function(df,pvalue,x_labels = c('Control','Treat')){
                 margin_top = 0.3,
                 tip_length = 0.1,
                 vjust = -0.7
-    )
+    )+
+    scale_x_discrete(labels = x_labels)
 }
 
 ui <- fluidPage(

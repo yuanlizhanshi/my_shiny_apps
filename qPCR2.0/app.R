@@ -63,16 +63,18 @@ plot_df <- function(df3){
 bar_plot <- function(test_res){
   get_maxfold <- function(test_res){
     df1 <- test_res %>% group_by(gene_name) %>% summarise(max_fold = max(Fold))
-    return(df1$max_fold+0.2)
+    df2 <- test_res %>% group_by(gene_name) %>% summarise(max_SD = max(SD))
+    return(df1$max_fold+df2$max_SD +0.2)
   }
   get_ano <- function(test_res){
     df1 <- test_res %>% group_by(gene_name) %>% summarise(ano = unique(significant))
     return(df1$ano)
   }
-  
   ggplot(test_res,aes(gene_name,Fold,fill= sample)) + 
     geom_bar(stat = "identity",position = position_dodge(width = 1)) + theme_classic() +
-    geom_errorbar(aes(ymin = Fold - SD, ymax = Fold + SD),position=position_dodge(width=1), width=0.3,size=0.3,colour="black") +
+    geom_errorbar(aes(ymin = Fold - SD, ymax = Fold + SD),
+                  position=position_dodge(width=1), 
+                  width=0.3,size=0.3,colour="black") +
     labs(x = '',y = 'Relative expression levels')+
     guides()+
     ggprism::theme_prism()+

@@ -35,7 +35,7 @@ ui <- fluidPage(
     ),style = "font-size:200%"
   ),
   actionButton("Search", "Search"),
-  downloadButton("download", "Download paper")
+  downloadButton("download_test", "Download paper")
 )
 
 server <- function(input, output, session) {

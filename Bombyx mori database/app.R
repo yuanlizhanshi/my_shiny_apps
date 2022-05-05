@@ -1,28 +1,16 @@
-#
-# This is a Shiny web application. You can run the application by clicking
-# the 'Run App' button above.
-#
-# Find out more about building applications with Shiny here:
-#
-#    http://shiny.rstudio.com/
-#
-
 library(shiny)
 library(tidyverse)
-library(AnnotationHub)
-
+library(shinydashboard)
 load('KWMT2NCBI.rdata')
 load('CN_3G2NCBI.rdata')
 load('all_ids.rdata')
 load('KEGG_info.rdata')
-load('hub.rdata')
 load('domain_info.rdata')
 load('GO_info.rdata')
 load('PMID_title.rdata')
 ###load database
-hub <- AnnotationHub::AnnotationHub()
-bmor_orgdb <- hub[['AH97101']]
 
+bmor_orgdb <-  AnnotationDbi::loadDb(file = "bmor_orgdb.sqlite")
 find_gene <- function(x){
   if(str_detect(x,'KWMT')){
     NCBI_ID_res <- KWMT2NCBI[str_which(KWMT2NCBI$KaikobaseID,x),]$NCBI_ID
@@ -90,102 +78,209 @@ add_info <- function(chr){
     return(chr)
   }
 }
-###load function
 
+######ID search function------
+load('KWMT2NCBI.rdata')
+load('CN_3G2NCBI.rdata')
+KWMT2NCBI_trans <- function(x){
+  temp_res <- KWMT2NCBI[str_which(KWMT2NCBI$KaikobaseID,x),]$NCBI_ID
+  if (length(temp_res) >=1) {
+    return(paste0(temp_res,collapse = ','))
+  }
+  else{
+    return(NA)
+  }
+}
+NCBI2KWMT_trans <- function(x){
+  temp_res <- KWMT2NCBI[str_which(KWMT2NCBI$NCBI_ID,x),]$KaikobaseID
+  if (length(temp_res) >=1) {
+    return(paste0(temp_res,collapse = ','))
+  }
+  else{
+    return(NA)
+  }
+}
+CN_3G2NCBI_trans <- function(x){
+  temp_res <- CN_3G2NCBI[str_which(CN_3G2NCBI$silkDB3.0_ID,x),]$SYMBOL
+  if (length(temp_res) >=1) {
+    return(paste0(temp_res,collapse = ','))
+  }
+  else{
+    return(NA)
+  }
+}
+NCBI2CN_3G_trans <- function(x){
+  temp_res <- CN_3G2NCBI[str_which(CN_3G2NCBI$SYMBOL,x),]$silkDB3.0_ID
+  if (length(temp_res) >=1) {
+    return(paste0(temp_res,collapse = ','))
+  }
+  else{
+    return(NA)
+  }
+}
+ID_conversion <- function(df,TOtype){
+  id_vec <- df[[1]]
+  switch(
+    TOtype,
+    'Kaikobase ID to NCBI ID' = map_chr(id_vec,KWMT2NCBI_trans),
+    'NCBI ID to Kaikobase ID' = map_chr(id_vec,NCBI2KWMT_trans),
+    'Silkdb3.0 ID to NCBI ID' = map_chr(id_vec,CN_3G2NCBI_trans),
+    'NCBI ID to Silkdb3.0 ID' = map_chr(id_vec,NCBI2CN_3G_trans)
+  )
+}
+all_choices <- c('Kaikobase ID to NCBI ID','NCBI ID tO Kaikobase ID','Silkdb3.0 ID to NCBI ID','NCBI ID tO Silkdb3.0 ID')
+getcolnames <- function(choices){
+  case_when(choices == 'Kaikobase ID to NCBI ID' ~ c('Kaikobase_id','NCBI_id'),
+            choices == 'NCBI ID to Kaikobase ID' ~ c('NCBI_id','Kaikobase_id'),
+            choices == 'Silkdb3.0 ID to NCBI ID' ~ c('Silkdb3.0_id','NCBI_id'),
+            choices == 'NCBI ID to Silkdb3.0 ID' ~ c('NCBI_id','Silkdb3.0_id'),
+  )
+}
+######ID transformation function-------
 
-# Define UI for application that draws a histogram
-ui <- fluidPage(
-  helpText('输入任意你想查询的基因id,自动检测并支持多种形式，例如BMSK0000001,KWMTBOMO00001,BMgn002073,LOC119629070,trx,NM_001042449.1,GO:0000003,
+header <- dashboardHeader(
+  title = "Silkworm database"
+)
+
+sidebar <- dashboardSidebar(
+  sidebarMenu(
+    menuItem("ID search", tabName = "ID_search"),
+    menuItem("ID barch transform", tabName = "ID_transform"),
+    div(style="text-align:center")
+  )
+  
+)
+
+body <- dashboardBody(
+  ##change the CSS format of sidebar 
+  tags$head( 
+    tags$style(HTML(".main-sidebar { font-size: 20px };")) #change the font size to 20
+  ),
+  
+  tabItems(
+    #### ID_search tab content------
+    
+    tabItem(tabName = "ID_search",
+            helpText('输入任意你想查询的基因id,自动检测并支持多种形式，例如BMSK0000001,KWMTBOMO00001,BMgn002073,LOC119629070,trx,NM_001042449.1,GO:0000003,
     也可以输入文献的pubmed号查询是否有相关基因，例如10066809'),
-  fluidRow(
-    column(2,textInput('input_Id','Input_Id:',value = 'Trx')),
-  ),
-  fluidRow(
-    verbatimTextOutput('input_Id_type'),
-  ),
-  fluidRow(
-    verbatimTextOutput('NCBI_id')
-  ),
-  fluidRow(
-    verbatimTextOutput('Silkdb3.0id')
-  ),
-  fluidRow(
-    verbatimTextOutput('KaikobaseID')
-  ),
-  fluidRow(
-    verbatimTextOutput('SilkbaseID')
-  ),
-  fluidRow(
-    verbatimTextOutput('ENTREZID')
-  ),
-  fluidRow(
-    verbatimTextOutput('Alias')
-  ),
-  fluidRow(
-    verbatimTextOutput('GENENAME')
-  ),
-  fluidRow(
-    verbatimTextOutput('REFSEQ')
-  ),
-  fluidRow(
-    verbatimTextOutput('Gene_location')
-  ),
-  fluidRow(
-    verbatimTextOutput('GO_infomation'),
-    div(
-      tableOutput('GO'),
+    fluidRow(
+      column(2,textInput('input_Id','Input_Id:',value = 'Trx')),
+    ),
+    fluidRow(
+      verbatimTextOutput('input_Id_type'),
+    ),
+    fluidRow(
+      verbatimTextOutput('NCBI_id')
+    ),
+    fluidRow(
+      verbatimTextOutput('Silkdb3.0id')
+    ),
+    fluidRow(
+      verbatimTextOutput('KaikobaseID')
+    ),
+    fluidRow(
+      verbatimTextOutput('SilkbaseID')
+    ),
+    fluidRow(
+      verbatimTextOutput('ENTREZID')
+    ),
+    fluidRow(
+      verbatimTextOutput('Alias')
+    ),
+    fluidRow(
+      verbatimTextOutput('GENENAME')
+    ),
+    fluidRow(
+      verbatimTextOutput('REFSEQ')
+    ),
+    fluidRow(
+      verbatimTextOutput('Gene_location')
+    ),
+    fluidRow(
+      verbatimTextOutput('GO_infomation'),
+      div(
+        tableOutput('GO'),
         style = "font-size:80%"
       )
-  ),
-  fluidRow(
-    verbatimTextOutput('KEGG_infomation'),
-    div(
-      tableOutput('KEGG'),
-      style = "font-size:80%"
-    )
-  ),
-  fluidRow(
-    verbatimTextOutput('Protein_domain_infomation'),
-    div(
-      tableOutput('domian'),
-      style = "font-size:80%"
     ),
-    div(
-      uiOutput("Protein_domain_note"),
-      style = "font-size:70%"
+    fluidRow(
+      verbatimTextOutput('KEGG_infomation'),
+      div(
+        tableOutput('KEGG'),
+        style = "font-size:80%"
+      )
     ),
-  ),
-  fluidRow(
-    verbatimTextOutput('paper_info'),
-    div(
-      tableOutput('PMID'),
-      style = "font-size:80%"
+    fluidRow(
+      verbatimTextOutput('Protein_domain_infomation'),
+      div(
+        tableOutput('domian'),
+        style = "font-size:80%"
       ),
-  ),
-  fluidRow(
-    verbatimTextOutput('des'),
-  ),
-  fluidRow(
-    verbatimTextOutput('Summary'),
-    tags$style(type='text/css', '#txt_out {white-space: pre-wrap;}')
-  ),
-  fluidRow(
+      div(
+        uiOutput("Protein_domain_note"),
+        style = "font-size:70%"
+      ),
+    ),
+    fluidRow(
+      verbatimTextOutput('paper_info'),
+      div(
+        tableOutput('PMID'),
+        style = "font-size:80%"
+      ),
+    ),
+    fluidRow(
+      verbatimTextOutput('des'),
+    ),
+    fluidRow(
+      verbatimTextOutput('Summary'),
+      tags$style(type='text/css', '#txt_out {white-space: pre-wrap;}')
+    ),
+    fluidRow(
       div(
         selectInput("homolog_all", "  Choose species", colnames(KWMT2NCBI)[20:7],selected = 'Drosophila_melanogaster'),
         style = "font-size:80%"
       )
     ),
-  fluidRow(
-    verbatimTextOutput('homolog'),
-  ),
-  helpText('若发现数据有错误或者缺失，请联系孔某'),
-  tags$style(type="text/css",
-             ".shiny-output-error { visibility: hidden; }",
-             ".shiny-output-error:before { visibility: hidden; }"
+    fluidRow(
+      verbatimTextOutput('homolog'),
+    ),
+    helpText('若发现数据有错误或者缺失，请联系孔某'),
+    tags$style(type="text/css",
+               ".shiny-output-error { visibility: hidden; }",
+               ".shiny-output-error:before { visibility: hidden; }"
+    )
+    ),
+    
+    #### ID_transform tab content------
+    tabItem(tabName = "ID_transform",
+            fluidRow(
+              fileInput("upload", NULL, buttonLabel = "Upload...", multiple = FALSE,accept = c(".xls", ".xlsx"))
+            ),
+            fluidRow(
+              selectInput('convert_type','Select the conversion type',choices = all_choices)
+            ),
+            fluidRow(
+              'Preview the results'
+            ),
+            div(
+              fluidRow(
+                column(6,
+                       dataTableOutput("preview")
+                )
+              ),
+              style = "font-size:80%"
+            ),
+            downloadButton("download", "Download Conversion result")
+    )
   )
 )
 
-# Define server logic required to draw a histogram
+ui <-  dashboardPage(header, sidebar, body,
+                     skin = "green")
+
+
+
+
 server <- function(input, output){
   NCBI_ID <- reactive(find_gene(req(input$input_Id)))
   output$input_Id_type <- renderText({
@@ -197,7 +292,7 @@ server <- function(input, output){
   output$Silkdb3.0id <- renderText({
     Silkdb3.0_gene <- CN_3G2NCBI[str_which(CN_3G2NCBI$SYMBOL,NCBI_ID()),]$silkDB3.0_ID
     paste0('Silkdb3.0_id:  ',paste0(Silkdb3.0_gene,collapse = ';')) %>% unique()
-})
+  })
   output$KaikobaseID <- renderText({
     Kaikobase_gene <- KWMT2NCBI[str_which(KWMT2NCBI$NCBI_ID,NCBI_ID()),]$KaikobaseID
     paste0('Kaikobase_id:  ',paste0(Kaikobase_gene,collapse = ';')) %>% unique()
@@ -293,12 +388,37 @@ server <- function(input, output){
     paste0('Homolog:  ',paste0(Kaikobase_gene,collapse = ';'))
   }
   )
+  #############sever of transformation--------
+  data <- reactive({
+    req(input$upload)
+    ext <- tools::file_ext(input$upload$name)
+    switch(ext,
+           xls = readxl::read_xls(input$upload$datapath),
+           xlsx = readxl::read_xlsx(input$upload$datapath),
+           validate("Invalid file; Please upload a .xls or .xlsx file")
+    )
+  })
+  convert_res <- reactive({
+    req(input$convert_type)
+    convert_df <- data() %>% mutate(ID_conversion(data(),input$convert_type)) %>%
+      data.table::setnames(getcolnames(input$convert_type))
+  })
+  
+  
+  output$preview <- renderDataTable({
+    convert_res()
+  },
+  options = list(pageLength = 20)
+  )
+  output$download <- downloadHandler(
+    filename = function() {
+      paste0(input$convert_type, ".xls")
+    },
+    content = function(file) {
+      write.table(convert_res(), file,sep = '\t',col.names = T,row.names = F,quote = F)
+    }
+  )
+  
 }
 
-# Run the application
-
-shinyApp(ui = ui, server = server)
-
-
-
-
+shinyApp(ui, server)

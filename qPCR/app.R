@@ -1,171 +1,328 @@
-#
-# This is a Shiny web application. You can run the application by clicking
-# the 'Run App' button above.
-#
-# Find out more about building applications with Shiny here:
-#
-#    http://shiny.rstudio.com/
-#
-
-
 library(shiny)
 library(tidyverse)
-library(ggplot2)
-library(ggprism)
-library(ggpubr)
-determine_p <- function(pvalue){
-  case_when(
-    pvalue <= 0.05 & pvalue > 0.01 ~ paste0("pvalue =",pvalue,'   ',"*"),
-    pvalue <= 0.01 & pvalue > 0.001~ paste0("pvalue =",pvalue,'   ',"**"),
-    pvalue <= 0.001 ~ paste0("pvalue =",pvalue,'  ',"***"),
-    TRUE ~ paste0("pvalue =",pvalue,'   ',"NS")
-  ) 
+library(shinydashboard)
+
+get_list <- function(gene_name,df = all_gene_cq ){
+  df <- data.frame(
+    sample = df[[1]],
+    GAPDH = df[[2]],
+    target_gene = df[[gene_name]]
+  )
+  return(df)
 }
-bar_plot <- function(df,pvalue,x_labels = c('Control','Treat')){
-  pvalues <- determine_p(pvalue)
-  ggplot(df,aes(sample,Fold,fill= sample)) + 
-    geom_col(width = 0.5,position = position_dodge(width = 0.1)) + theme_classic() +
-    geom_errorbar(aes(ymin = Fold - sd, ymax = Fold + sd),width=0.2) +
+single_calcluate2 <- function(dfx){
+  repeat_num <- nrow(dfx)/length(table(dfx[[1]]))
+  df1 <- dfx %>% pivot_longer(cols = -sample,names_to = 'gene',values_to = 'cq') %>% group_by(gene) %>% mutate(n = row_number())
+  df2 <- df1 %>% pivot_wider(names_from = c(gene),values_from = cq,names_prefix = 'cq')
+  df3 <- df2 %>% mutate(mean_cq1 = unlist(c(df2[str_which(colnames(df2),'target_gene')],use.names=F)),
+                        mean_cq2 = unlist(c(df2[str_which(colnames(df2),'GAPDH')],use.names=F))) %>%
+    mutate(deltaCT = mean_cq1 - mean_cq2) %>%
+    mutate(two_NegdeltaCT = 2**(-deltaCT))
+  sample_mean_two_NegdeltaCT <- df3 %>% group_by(sample) %>% summarise(mean_two_NegdeltaCT = mean(two_NegdeltaCT))
+  df5 <- df3 %>% mutate(mean_two_NegdeltaCT = unlist(map(sample_mean_two_NegdeltaCT$mean_two_NegdeltaCT,rep,repeat_num)))  %>%
+    mutate(two_NegdeltadeltaCT = two_NegdeltaCT/mean_two_NegdeltaCT[1])
+  return(df5)
+}
+plot_df_1 <- function(df3){
+  determine_p <- function(pvalue){
+    case_when(
+      pvalue <= 0.05 & pvalue > 0.01 ~ "*",
+      pvalue <= 0.01 & pvalue > 0.001~ "**",
+      pvalue <= 0.001 ~ "***",
+      TRUE ~ "NS"
+    ) 
+  }
+  repeat_num = nrow(df3)/2
+  names <- unique(df3[[1]])
+  sample_num = length(names)
+  ttest_res <- t.test(df3[1:repeat_num,10],df3[c(repeat_num+1) : c(repeat_num*2),10])
+  aa <- data.frame(
+    sample = names,
+    Fold = c(
+      apply(df3[1:repeat_num,10],2, mean),
+      apply(df3[c(repeat_num+1) : c(repeat_num*2),10],2, mean)
+    ),
+    SD =   c(
+      apply(df3[1:repeat_num,10],2, sd),
+      apply(df3[c(repeat_num +1):c(repeat_num*2),10],2, sd)),
+    pvalue = round(ttest_res$p.value,4),
+    significant = determine_p(round(ttest_res$p.value,4))
+  )
+  return(aa)
+}
+bar_plot_1 <- function(test_res){
+  get_maxfold <- function(test_res){
+    df1 <- test_res %>% group_by(gene_name) %>% summarise(max_fold = max(Fold))
+    df2 <- test_res %>% group_by(gene_name) %>% summarise(max_SD = max(SD))
+    return(df1$max_fold+df2$max_SD +0.2)
+  }
+  get_ano <- function(test_res){
+    df1 <- test_res %>% group_by(gene_name) %>% summarise(ano = unique(significant))
+    return(df1$ano)
+  }
+  ggplot(test_res,aes(gene_name,Fold,fill= sample)) + 
+    geom_bar(stat = "identity",position = position_dodge(width = 1)) + theme_classic() +
+    geom_errorbar(aes(ymin = Fold - SD, ymax = Fold + SD),
+                  position=position_dodge(width=1), 
+                  width=0.3,size=0.3,colour="black") +
     labs(x = '',y = 'Relative expression levels')+
-    guides(fill = 'none')+
-    theme_prism()+
+    guides()+
+    ggprism::theme_prism()+
     scale_fill_manual(values = c("#69b3a2","#836FFF"))+
-    ylim(NA,max(df$Fold,na.rm = T)+0.2)+
     theme(axis.title.x = element_blank(),
-          aspect.ratio = 1.3)+
-    geom_signif(comparisons = list(c("Control_group", "Treat_group")),
-                annotations = pvalues,
-                margin_top = 0.3,
-                tip_length = 0.1,
-                vjust = -0.7
-    )+
-    scale_x_discrete(labels = x_labels)
+          aspect.ratio = 1.3,
+          axis.text.x = element_text(angle = 45))+
+    ggpubr::geom_signif(y_position = get_maxfold(test_res), 
+                        xmin = rep(1:length(get_ano(test_res))) -0.2, 
+                        xmax = rep(1:length(get_ano(test_res))) + 0.2,
+                        annotation = get_ano(test_res),
+                        tip_length = 0)
 }
 
-ui <- fluidPage(
-  div(
-    fluidRow(column(2,textInput("gapdh", "内参基因(输入内参基因的名字)",'GAPHD',width = '200px'))),
-    fluidRow(
-      column(1,numericInput("ref_gapdh1", "对照组内参基因Cq1:", NA, min = 1, max = 100,width = '80px')),
-      column(1,numericInput("ref_gapdh2", "对照组内参基因Cq2:", NA, min = 1, max = 100,width = '80px')),
-      column(1,numericInput("ref_gapdh3", "对照组内参基因Cq3:", NA, min = 1, max = 100,width = '80px')),
-      column(1,numericInput("ref_gapdh4", "对照组内参基因Cq4:", NA, min = 1, max = 100,width = '80px')),
-      column(1,numericInput("ref_gene1", "对照组目的基因Cq1:", NA, min = 1, max = 100,width = '80px')),
-      column(1,numericInput("ref_gene2", "对照组目的基因Cq2:", NA, min = 1, max = 100,width = '80px')),
-      column(1,numericInput("ref_gene3", "对照组目的基因Cq3:", NA, min = 1, max = 100,width = '80px')),
-      column(1,numericInput("ref_gene4", "对照组目的基因Cq4:", NA, min = 1, max = 100,width = '80px'))
+
+
+plot_df_2 <- function(df3){
+  fold_value <- df3 %>% group_by(sample) %>% summarise(Fold = mean(two_NegdeltadeltaCT),SD = sd(two_NegdeltadeltaCT))
+  return(fold_value)
+}
+bar_plot_2 <- function(test_res){
+  ggplot(test_res,aes(gene_name,Fold,fill= sample)) + 
+    geom_bar(stat = "identity",position = position_dodge(width = 1)) + theme_classic() +
+    geom_errorbar(aes(ymin = Fold - SD, ymax = Fold + SD),
+                  position=position_dodge(width=1), 
+                  width=0.3,size=0.3,colour="black") +
+    labs(x = '',y = 'Relative expression levels')+
+    theme(axis.title.x = element_blank(),
+          aspect.ratio = 1.3,
+          axis.text.x = element_text(angle = 45))+
+    ggprism::theme_prism()
+}
+
+
+
+header <- dashboardHeader(
+  title = "qPCR Calculator"
+)
+
+sidebar <- dashboardSidebar(
+  sidebarMenu(
+    menuItem("Paired sample", tabName = "Paired_sample"),
+    menuItem("Multi sample", tabName = "Multi_sample"),
+    div(style="text-align:center")
+  )
+  
+)
+
+body <- dashboardBody(
+  ##change the CSS format of sidebar 
+  tags$head( 
+    tags$style(HTML(".main-sidebar { font-size: 20px };")) #change the font size to 20
+  ),
+  
+  tabItems(
+    # Paired_sample tab content
+    
+    tabItem(tabName = "Paired_sample",
+            fluidRow(
+              column(6,
+                     fileInput("upload_1", NULL, buttonLabel = "Upload Paired sample...", multiple = FALSE,accept = c(".xls", ".xlsx"))
+              ),
+              column(3,
+                     downloadButton("download_test_1", "Download excel format")
+              )
+            ),
+            div(
+              fluidRow(
+                column(6,
+                       dataTableOutput("preview_1")
+                )
+              ),
+              style = "font-size:80%"
+            ),
+            div(
+              fluidRow(
+                "Results"
+              ),
+              style = "font-size:200%"
+            ),
+            tableOutput("results_1"),
+            fluidRow(
+              plotOutput("barplots_1")
+            ),
+            fluidRow(
+              downloadButton('downloadPlot', 'Download Plot')
+            ),
+            tags$style(type="text/css",
+                       ".shiny-output-error { visibility: hidden; }",
+                       ".shiny-output-error:before { visibility: hidden; }"
+            )
     ),
-    fluidRow(column(2,textInput("targetgene", "目的基因(输入目的基因的名字)",NA,width = '200px'))),
-    fluidRow(
-      column(1,numericInput("treat_gapdh1", "处理组内参基因Cq1:", NA, min = 1, max = 100,width = '80px')),
-      column(1,numericInput("treat_gapdh2", "处理组内参基因Cq2:", NA, min = 1, max = 100,width = '80px')),
-      column(1,numericInput("treat_gapdh3", "处理组内参基因Cq3:", NA, min = 1, max = 100,width = '80px')),
-      column(1,numericInput("treat_gapdh4", "处理组内参基因Cq4:", NA, min = 1, max = 100,width = '80px')),
-      column(1,numericInput("treat_gene1", "处理组目的基因Cq1:", NA, min = 1, max = 100,width = '80px')),
-      column(1,numericInput("treat_gene2", "处理组目的基因Cq2:", NA, min = 1, max = 100,width = '80px')),
-      column(1,numericInput("treat_gene3", "处理组目的基因Cq3:", NA, min = 1, max = 100,width = '80px')),
-      column(1,numericInput("treat_gene4", "处理组目的基因Cq4:", NA, min = 1, max = 100,width = '80px'))
-    ),
-    style="font-size:80%"
-  ),
-  tableOutput("values"),
-  "结果",
-  verbatimTextOutput("pvalue"),
-  tableOutput("results_df1"),
-  fluidRow(
-    helpText('滑动调节图片长宽'),
-    column(6,sliderInput("height", "height", min = 100, max = 1000, value = 300)),
-    column(6,sliderInput("width", "width", min = 100, max = 1000, value = 300))
-  ),
-  fluidRow(
-    column(2,textInput("control_name", "输入对照样本的名字","Control",width = '200px')),
-    column(2,textInput("treat_name", "输入处理样本的名字","Treat",width = '200px'))
-  ),
-  fluidRow(
-    plotOutput("barplots")
-  ),
-  fluidRow(
-    downloadButton('downloadPlot', 'Download Plot')
-  ),
-  tags$style(type="text/css",
-             ".shiny-output-error { visibility: hidden; }",
-             ".shiny-output-error:before { visibility: hidden; }"
+    
+    
+    # Multi_sample tab content
+    tabItem(tabName = "Multi_sample",
+            fluidRow(
+              column(6,
+                     fileInput("upload_2", NULL, buttonLabel = "Upload Multi sample...", multiple = FALSE,accept = c(".xls", ".xlsx"))
+              ),
+              column(3,
+                     downloadButton("download_test_2", "Download excel format")
+              )
+            ),
+            div(
+              fluidRow(
+                column(6,
+                       dataTableOutput("preview_2")
+                )
+              ),
+              style = "font-size:80%"
+            ),
+            div(
+              fluidRow(
+                "Results"
+              ),
+              style = "font-size:200%"
+            ),
+            tableOutput("results_2"),
+            div(
+              fluidRow(
+                "Pairwise t test"
+              ),
+              style = "font-size:200%"
+            ),
+            tableOutput("ttest"),
+            fluidRow(
+              plotOutput("barplots_2")
+            ),
+            fluidRow(
+              downloadButton('downloadPlot_2', 'Download Plot')
+            ),
+            tags$style(type="text/css",
+                       ".shiny-output-error { visibility: hidden; }",
+                       ".shiny-output-error:before { visibility: hidden; }"
+            )
+    )
   )
 )
 
+ui <-  dashboardPage(header, sidebar, body,
+                     skin = "purple")
+
 server <- function(input, output) {
-  target_id <- reactive({input$targetgene})
-  rowcq_df_obj <- reactive({
-    gadph_cqvalues <- na.omit(c(input$ref_gapdh1,input$ref_gapdh2,input$ref_gapdh3,input$ref_gapdh4,
-                                input$treat_gapdh1,input$treat_gapdh2,input$treat_gapdh3,input$treat_gapdh4))
-    target_cqvalues <- na.omit(c(input$ref_gene1,input$ref_gene2,input$ref_gene3,input$ref_gene4,
-                                 input$treat_gene1,input$treat_gene2,input$treat_gene3,input$treat_gene4))
-    ref_id <- input$gapdh
-    target_id <- input$targetgene
-    reps <- length(c(gadph_cqvalues,target_cqvalues))/4
-    samples <- c(rep('Control_group',reps),rep('Treat_group',reps))
-    rowcq_df <- data.frame(
-      sample = samples,
-      cqGAPHD = gadph_cqvalues,
-      cqgene = target_cqvalues
+  data <- reactive({
+    req(input$upload_1)
+    ext <- tools::file_ext(input$upload_1$name)
+    switch(ext,
+           xls = readxl::read_xls(input$upload_1$datapath),
+           xlsx = readxl::read_xlsx(input$upload_1$datapath),
+           validate("Invalid file; Please upload a .xls or .xlsx file")
     )
-    colnames(rowcq_df)[2] <- paste0(ref_id,'_Cq')
-    colnames(rowcq_df)[3] <- paste0(target_id,'_Cq')
-    rowcq_df$mean_cq1 <- rowcq_df[[3]]
-    rowcq_df$mean_cq2 <- rowcq_df[[2]]
-    rowcq_df <- rowcq_df %>%
-      mutate(deltaCT = mean_cq1-mean_cq2) %>%
-      mutate(two_NegdeltaCT = 2**(-deltaCT)) %>%
-      mutate(mean_two_NegdeltaCT = c(rep(mean(two_NegdeltaCT[1:reps]),reps),
-                                     rep(mean(two_NegdeltaCT[c(reps+1):c(reps*2)]),reps))) %>%
-      mutate(two_NegdeltadeltaCT = two_NegdeltaCT/mean_two_NegdeltaCT[1]) 
-    return(rowcq_df)
   })
-  fold_res <- reactive({
-    fold_res_df <- rowcq_df_obj() %>% group_by(sample) %>% 
-      summarise(Fold = mean(two_NegdeltadeltaCT),sd = sd(two_NegdeltadeltaCT))
-    if(fold_res_df$Fold[2] <= 1){
-      fold_res_df$Fold <- fold_res_df$Fold/fold_res_df$Fold[2]
-    }
-    return(fold_res_df)
+  all_gene_list <- reactive({
+    req(input$upload_1)
+    map(colnames(data())[3:ncol(data())],get_list,df = data()) %>% setNames(colnames(data())[3:ncol(data())])
   })
-  pvalue <- reactive({
-    reps <- nrow(rowcq_df_obj())/2
-    ttest_res <- t.test(
-      rowcq_df_obj()[1:reps,ncol(rowcq_df_obj())],
-      rowcq_df_obj()[c(reps+1):c(reps*2),ncol(rowcq_df_obj())]
-    )
-    return(round(ttest_res$p.value,4))
+  calculation_process <- reactive({
+    req(input$upload_1)
+    map_dfr(all_gene_list(),single_calcluate2,.id = 'gene_name')
   })
-  x_label <- reactive({
-    return(c(input$control_name,input$treat_name))
+  calculation_results <- reactive({
+    req(input$upload_1)
+    map_dfr(map(all_gene_list(),single_calcluate2),plot_df_1,.id = 'gene_name')
   })
-  output$values <- renderTable(
-    {
-      rowcq_df_obj()
-    }
-    ,digits = 4)
-  output$results_df1 <- renderTable(
-    {
-      fold_res()  
-    }
-    ,digits = 4)
-  output$pvalue <- renderText({
-    determine_p(pvalue())
-  }
+  output$preview_1 <- renderDataTable({
+    calculation_process()
+  },
+  options = list(pageLength = 10)
   )
-  output$barplots <- renderPlot(
-    width = function() input$width,
-    height = function() input$height,
+  output$results_1 <- renderTable(
     {
-      plot(bar_plot(fold_res(),pvalue(),x_labels = x_label()))
-    },res = 96)
+      calculation_results()
+    }
+    ,digits = 4)
+  output$barplots_1 <- renderPlot({
+    bar_plot_1(calculation_results())
+  })
+  
+  ####server funcuoint of paired 
+  data2 <- reactive({
+    req(input$upload_2)
+    ext <- tools::file_ext(input$upload_2$name)
+    switch(ext,
+           xls = readxl::read_xls(input$upload_2$datapath),
+           xlsx = readxl::read_xlsx(input$upload_2$datapath),
+           validate("Invalid file; Please upload a .xls or .xlsx file")
+    )
+  })
+  all_gene_list2 <- reactive({
+    req(input$upload_2)
+    map(colnames(data2())[3:ncol(data2())],get_list,df = data2()) %>% 
+      setNames(colnames(data2())[3:ncol(data2())])
+  })
+  calculation_process2 <- reactive({
+    req(input$upload_2)
+    map_dfr(all_gene_list2(),single_calcluate2,.id = 'gene_name')
+  })
+  calculation_results2 <- reactive({
+    req(input$upload_2)
+    map_dfr(map(all_gene_list2(),single_calcluate2),plot_df_2,.id = 'gene_name')
+  })
+  output$preview <- renderDataTable({
+    calculation_results2()
+  },
+  options = list(pageLength = 10)
+  )
+  p_value <- reactive({
+    calculation_process2() %>% rstatix::pairwise_t_test(two_NegdeltadeltaCT ~ sample, p.adjust.method = "bonferroni") %>% select(2,3,6,7)
+  })
+  output$preview_2 <- renderDataTable({
+    calculation_process2()
+  },
+  options = list(pageLength = 10)
+  )
+  output$results_2 <- renderTable(
+    {
+      calculation_results2()
+    }
+    ,digits = 4)
+  output$ttest <-renderTable(
+    p_value()
+  )
+  output$barplots_2 <- renderPlot({
+    bar_plot_2(calculation_results2())
+  })
+  
+  ###download some thing
   output$downloadPlot <- downloadHandler(
-    filename = function(){paste0(target_id(),'.tiff')},
+    filename = function(){paste0(paste0(colnames(data())[c(-1,-2)],collapse = '_'),'.tiff')},
     content = function(file) {
       tiff(file,width = 3000, height = 4000, units = "px", res = 600, compression = "lzw")
-      plot(bar_plot(fold_res(),pvalue()))
+      plot(bar_plot_1(calculation_results()))
+      dev.off()
+    })
+  output$downloadPlot_2 <- downloadHandler(
+    filename = function(){paste0(paste0(colnames(data())[c(-1,-2)],collapse = '_'),'.tiff')},
+    content = function(file) {
+      tiff(file,width = 3000, height = 4000, units = "px", res = 600, compression = "lzw")
+      plot(bar_plot_2(calculation_results2()))
       dev.off()
     }) 
+  output$download_test_1 <- downloadHandler(
+    filename = function(){
+      "format_1.xlsx"
+    },
+    content = function(file){
+      file.copy("format_1.xlsx", file)
+    }
+  )
+  output$download_test_2 <- downloadHandler(
+    filename = function(){
+      "format_2.xlsx"
+    },
+    content = function(file){
+      file.copy("format_2.xlsx", file)
+    }
+  )
 }
+
 shinyApp(ui, server)

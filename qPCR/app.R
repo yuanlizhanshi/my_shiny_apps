@@ -23,15 +23,16 @@ single_calcluate2 <- function(dfx){
     mutate(two_NegdeltadeltaCT = two_NegdeltaCT/mean_two_NegdeltaCT[1])
   return(df5)
 }
+determine_p <- function(pvalue){
+  case_when(
+    pvalue <= 0.05 & pvalue > 0.01 ~ "*",
+    pvalue <= 0.01 & pvalue > 0.001~ "**",
+    pvalue <= 0.001 ~ "***",
+    TRUE ~ "NS"
+  ) 
+}
 plot_df_1 <- function(df3){
-  determine_p <- function(pvalue){
-    case_when(
-      pvalue <= 0.05 & pvalue > 0.01 ~ "*",
-      pvalue <= 0.01 & pvalue > 0.001~ "**",
-      pvalue <= 0.001 ~ "***",
-      TRUE ~ "NS"
-    ) 
-  }
+
   repeat_num = nrow(df3)/2
   names <- unique(df3[[1]])
   sample_num = length(names)
@@ -273,7 +274,11 @@ server <- function(input, output) {
   options = list(pageLength = 10)
   )
   p_value <- reactive({
-    calculation_process2() %>% rstatix::pairwise_t_test(two_NegdeltadeltaCT ~ sample, p.adjust.method = "bonferroni") %>% select(2,3,6,7)
+    res1 <- calculation_process2() %>% 
+      rstatix::pairwise_t_test(two_NegdeltadeltaCT ~ sample, paired =T,p.adjust.method = "bonferroni") %>% 
+      select(2,3,8) 
+    res1$significant <-  determine_p(round(res1[[3]],4))
+    return(res1)
   })
   output$preview_2 <- renderDataTable({
     calculation_process2()
@@ -285,9 +290,10 @@ server <- function(input, output) {
       calculation_results2()
     }
     ,digits = 4)
-  output$ttest <-renderTable(
+  output$ttest <-renderTable({
     p_value()
-  )
+  }
+    ,digits = 4)
   output$barplots_2 <- renderPlot({
     bar_plot_2(calculation_results2())
   })

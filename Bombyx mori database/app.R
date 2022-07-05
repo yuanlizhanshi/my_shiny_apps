@@ -8,6 +8,7 @@ load('KEGG_info.rdata')
 load('domain_info.rdata')
 load('GO_info.rdata')
 load('PMID_title.rdata')
+
 ###load database
 
 bmor_orgdb <-  AnnotationDbi::loadDb(file = "bmor_orgdb.sqlite")
@@ -82,6 +83,7 @@ add_info <- function(chr){
 ######ID search function------
 load('KWMT2NCBI.rdata')
 load('CN_3G2NCBI.rdata')
+load('NCBI_info_res.rdata')
 KWMT2NCBI_trans <- function(x){
   temp_res <- KWMT2NCBI[str_which(KWMT2NCBI$KaikobaseID,x),]$NCBI_ID
   if (length(temp_res) >=1) {
@@ -118,6 +120,16 @@ NCBI2CN_3G_trans <- function(x){
     return(NA)
   }
 }
+SYMBOL2GENENAME <- function(x){
+  temp_res <- NCBI_info[str_which(NCBI_info$SYMBOL,fixed(x)),]$GENENAME
+  if (length(temp_res) >=1) {
+    return(paste0(temp_res,collapse = ','))
+  }
+  else{
+    return(NA)
+  }
+}
+
 ID_conversion <- function(df,TOtype){
   id_vec <- df[[1]]
   switch(
@@ -401,7 +413,8 @@ server <- function(input, output){
   convert_res <- reactive({
     req(input$convert_type)
     convert_df <- data() %>% mutate(ID_conversion(data(),input$convert_type)) %>%
-      data.table::setnames(getcolnames(input$convert_type))
+      data.table::setnames(getcolnames(input$convert_type))%>% 
+      mutate(Description = map_chr(.data[['NCBI_id']],SYMBOL2GENENAME))
   })
   
   
@@ -418,7 +431,6 @@ server <- function(input, output){
       write.table(convert_res(), file,sep = '\t',col.names = T,row.names = F,quote = F)
     }
   )
-  
 }
 
 shinyApp(ui, server)

@@ -291,10 +291,13 @@ ui <-  dashboardPage(header, sidebar, body,
                      skin = "green")
 
 
-
-
 server <- function(input, output){
   NCBI_ID <- reactive(find_gene(req(input$input_Id)))
+  observeEvent(input$input_Id,{
+    if (input$input_Id != 'Trx') {
+      write.table(paste(Sys.time(),'\t',input$input_Id),file = 'log.txt',append = T,col.names = F,row.names = F,quote = F)
+    }
+  })
   output$input_Id_type <- renderText({
     paste0('输入的id类型为:  ',names(NCBI_ID()))
   })
@@ -416,8 +419,7 @@ server <- function(input, output){
       data.table::setnames(getcolnames(input$convert_type))%>% 
       mutate(Description = map_chr(.data[['NCBI_id']],SYMBOL2GENENAME))
   })
-  
-  
+
   output$preview <- renderDataTable({
     convert_res()
   },

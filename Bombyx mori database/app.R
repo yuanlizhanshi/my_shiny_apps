@@ -1,6 +1,8 @@
 library(shiny)
 library(tidyverse)
 library(shinydashboard)
+
+##load database------
 load('KWMT2NCBI.rdata')
 load('CN_3G2NCBI.rdata')
 load('all_ids.rdata')
@@ -9,8 +11,8 @@ load('domain_info.rdata')
 load('GO_info.rdata')
 load('PMID_title.rdata')
 
-###load database
 
+######ID search function------
 bmor_orgdb <-  AnnotationDbi::loadDb(file = "bmor_orgdb.sqlite")
 find_gene <- function(x){
   if(str_detect(x,'KWMT')){
@@ -80,7 +82,7 @@ add_info <- function(chr){
   }
 }
 
-######ID search function------
+######ID transformation function-------
 load('KWMT2NCBI.rdata')
 load('CN_3G2NCBI.rdata')
 load('NCBI_info_res.rdata')
@@ -148,8 +150,42 @@ getcolnames <- function(choices){
             choices == 'NCBI ID to Silkdb3.0 ID' ~ c('NCBI_id','Silkdb3.0_id'),
   )
 }
-######ID transformation function-------
 
+######GO&KEGG enrichment function-------
+KEGG_enrich <- function(x) {
+  mapped.gene <- clusterProfiler::bitr(
+    geneID = x,
+    fromType = 'SYMBOL',
+    toType = 'ENTREZID',
+    OrgDb = bmor_orgdb
+  )
+  enrich1 <- clusterProfiler::enrichKEGG(gene = mapped.gene$ENTREZID,
+                        keyType = "kegg",
+                        organism  = 'bmor',
+                        pvalueCutoff = 1,
+                        use_internal_data = T)
+  enrich2 <- clusterProfiler::setReadable(enrich1, OrgDb = bmor_orgdb, keyType="ENTREZID")
+  return(enrich2@result)
+}
+GO_enrich <- function(x){
+  enrich <- clusterProfiler::enrichGO(gene = x,
+                     OrgDb = bmor_orgdb,
+                     keyType = "SYMBOL",
+                     ont = "ALL",
+                     pvalueCutoff = 1,
+                     qvalueCutoff = 1)
+  return(enrich@result)
+}
+Enrich_conversion <- function(df,TOtype){
+  id_vec <- df[[1]]
+  switch(
+    TOtype,
+    'KEGG enrichment' = KEGG_enrich(id_vec),
+    'GO enrichment' = GO_enrich(id_vec),
+  )
+}
+
+######Web front-------
 header <- dashboardHeader(
   title = "Silkworm database"
 )
@@ -158,6 +194,7 @@ sidebar <- dashboardSidebar(
   sidebarMenu(
     menuItem("ID search", tabName = "ID_search"),
     menuItem("ID barch transform", tabName = "ID_transform"),
+    menuItem("GO&KEGG enrichment", tabName = "ID_enrichment"),
     div(style="text-align:center")
   )
   
@@ -283,6 +320,31 @@ body <- dashboardBody(
               style = "font-size:80%"
             ),
             downloadButton("download", "Download Conversion result")
+    ),
+    #### ID_enrichment tab content------
+    tabItem(tabName = "ID_enrichment",
+            fluidRow(
+              h2('Please input NCBI id')
+            ),
+            fluidRow(
+              fileInput("enrich_upload", NULL, buttonLabel = "Upload...", multiple = FALSE,accept = c(".xls", ".xlsx"))
+            ),
+            fluidRow(
+              selectInput('convert_type2','Select the conversion type',choices = c('KEGG enrichment','GO enrichment'))
+            ),
+            fluidRow(
+              'Preview the results'
+            ),
+            div(
+              fluidRow(
+                column(6,
+                       dataTableOutput("Enrichment_preview")
+                )
+              ),
+              style = "font-size:80%"
+            ),
+            downloadButton("Enrichment_download", "Download enrichment result")     
+      
     )
   )
 )
@@ -290,8 +352,9 @@ body <- dashboardBody(
 ui <-  dashboardPage(header, sidebar, body,
                      skin = "green")
 
-
+######Web back-------
 server <- function(input, output){
+  #############sever of ID search--------
   NCBI_ID <- reactive(find_gene(req(input$input_Id)))
   observeEvent(input$input_Id,{
     if (input$input_Id != 'Trx') {
@@ -431,6 +494,34 @@ server <- function(input, output){
     },
     content = function(file) {
       write.table(convert_res(), file,sep = '\t',col.names = T,row.names = F,quote = F)
+    }
+  )
+  #############sever of enrichment--------
+  enrich_data <- reactive({
+    req(input$enrich_upload)
+    ext <- tools::file_ext(input$enrich_upload$name)
+    switch(ext,
+           xls = readxl::read_xls(input$enrich_upload$datapath),
+           xlsx = readxl::read_xlsx(input$enrich_upload$datapath),
+           validate("Invalid file; Please upload a .xls or .xlsx file")
+    )
+  })
+  enrichres <- reactive({
+    req(input$convert_type2)
+    enrichres_df <- enrich_data() %>% Enrich_conversion(input$convert_type2)
+  })
+  
+  output$Enrichment_preview <- renderDataTable({
+    enrichres()
+  },
+  options = list(pageLength = 20)
+  )
+  output$Enrichment_download <- downloadHandler(
+    filename = function() {
+      paste0(input$convert_type2,' results', ".xls")
+    },
+    content = function(file) {
+      write.table(enrichres(), file,sep = '\t',col.names = T,row.names = F,quote = F)
     }
   )
 }

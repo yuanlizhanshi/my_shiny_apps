@@ -75,7 +75,7 @@ find_gene <- function(x){
 }
 add_info <- function(chr){
   if(any(is.na(chr))){
-    chr <- '暂无，欢迎补充'
+    chr <- 'Gene not found'
     return(chr)
   }else{
     return(chr)
@@ -210,8 +210,7 @@ body <- dashboardBody(
     #### ID_search tab content------
     
     tabItem(tabName = "ID_search",
-            helpText('输入任意你想查询的基因id,自动检测并支持多种形式，例如BMSK0000001,KWMTBOMO00001,BMgn002073,LOC119629070,trx,NM_001042449.1,GO:0000003,
-    也可以输入文献的pubmed号查询是否有相关基因，例如10066809'),
+            helpText('Input gene which you want to search, several froms supported, sush as BMSK0000001,KWMTBOMO00001,BMgn002073,LOC119629070,trx,NM_001042449.1'),
     fluidRow(
       column(2,textInput('input_Id','Input_Id:',value = 'Trx')),
     ),
@@ -293,7 +292,7 @@ body <- dashboardBody(
     fluidRow(
       verbatimTextOutput('homolog'),
     ),
-    helpText('若发现数据有错误或者缺失，请联系孔某'),
+    helpText('If you have any question,please contact kongyunhui1@gmail.com'),
     tags$style(type="text/css",
                ".shiny-output-error { visibility: hidden; }",
                ".shiny-output-error:before { visibility: hidden; }"
@@ -362,7 +361,7 @@ server <- function(input, output){
     }
   })
   output$input_Id_type <- renderText({
-    paste0('输入的id类型为:  ',names(NCBI_ID()))
+    paste0('Input id type is:  ',names(NCBI_ID()))
   })
   output$NCBI_id <- renderText({
     paste0('NCBI_id:  ',NCBI_ID())

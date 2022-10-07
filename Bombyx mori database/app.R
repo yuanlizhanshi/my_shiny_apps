@@ -1,7 +1,7 @@
 library(shiny)
 library(tidyverse)
 library(shinydashboard)
-
+library(shinyWidgets)
 ##load database------
 load('KWMT2NCBI.rdata')
 load('CN_3G2NCBI.rdata')
@@ -132,14 +132,50 @@ SYMBOL2GENENAME <- function(x){
   }
 }
 
-ID_conversion <- function(df,TOtype){
+ID_conversion <- function(df,TOtype,session = session){
   id_vec <- df[[1]]
   switch(
     TOtype,
-    'Kaikobase ID to NCBI ID' = map_chr(id_vec,KWMT2NCBI_trans),
-    'NCBI ID to Kaikobase ID' = map_chr(id_vec,NCBI2KWMT_trans),
-    'Silkdb3.0 ID to NCBI ID' = map_chr(id_vec,CN_3G2NCBI_trans),
-    'NCBI ID to Silkdb3.0 ID' = map_chr(id_vec,NCBI2CN_3G_trans)
+    'Kaikobase ID to NCBI ID' = map_chr(1:length(id_vec),function(x){
+      updateProgressBar(
+        session = session,
+        id = "pb",
+        value = x, total = length(id_vec),
+        title = paste("Process", 'finished')
+      )
+      x = id_vec[x]
+      return(KWMT2NCBI_trans(x))
+    }),
+    'NCBI ID tO Kaikobase ID' = map_chr(1:length(id_vec),function(x){
+      updateProgressBar(
+        session = session,
+        id = "pb",
+        value = x, total = length(id_vec),
+        title = paste("Process", 'finished')
+      )
+      x = id_vec[x]
+      return(NCBI2KWMT_trans(x))
+    }),
+    'Silkdb3.0 ID to NCBI ID' = map_chr(1:length(id_vec),function(x){
+      updateProgressBar(
+        session = session,
+        id = "pb",
+        value = x, total = length(id_vec),
+        title = paste("Process", 'finished')
+      )
+      x = id_vec[x]
+      return(CN_3G2NCBI_trans(x))
+    }),
+    'NCBI ID tO Silkdb3.0 ID' = map_chr(1:length(id_vec),function(x){
+      updateProgressBar(
+        session = session,
+        id = "pb",
+        value = x, total = length(id_vec),
+        title = paste("Process", 'finished')
+      )
+      x = id_vec[x]
+      return(NCBI2CN_3G_trans(x))
+    })
   )
 }
 all_choices <- c('Kaikobase ID to NCBI ID','NCBI ID tO Kaikobase ID','Silkdb3.0 ID to NCBI ID','NCBI ID tO Silkdb3.0 ID')
@@ -160,20 +196,20 @@ KEGG_enrich <- function(x) {
     OrgDb = bmor_orgdb
   )
   enrich1 <- clusterProfiler::enrichKEGG(gene = mapped.gene$ENTREZID,
-                        keyType = "kegg",
-                        organism  = 'bmor',
-                        pvalueCutoff = 1,
-                        use_internal_data = T)
+                                         keyType = "kegg",
+                                         organism  = 'bmor',
+                                         pvalueCutoff = 1,
+                                         use_internal_data = T)
   enrich2 <- clusterProfiler::setReadable(enrich1, OrgDb = bmor_orgdb, keyType="ENTREZID")
   return(enrich2@result)
 }
 GO_enrich <- function(x){
   enrich <- clusterProfiler::enrichGO(gene = x,
-                     OrgDb = bmor_orgdb,
-                     keyType = "SYMBOL",
-                     ont = "ALL",
-                     pvalueCutoff = 1,
-                     qvalueCutoff = 1)
+                                      OrgDb = bmor_orgdb,
+                                      keyType = "SYMBOL",
+                                      ont = "ALL",
+                                      pvalueCutoff = 1,
+                                      qvalueCutoff = 1)
   return(enrich@result)
 }
 Enrich_conversion <- function(df,TOtype){
@@ -210,93 +246,93 @@ body <- dashboardBody(
     #### ID_search tab content------
     
     tabItem(tabName = "ID_search",
-            helpText('Input gene which you want to search, several froms supported, sush as BMSK0000001,KWMTBOMO00001,BMgn002073,LOC119629070,trx,NM_001042449.1'),
-    fluidRow(
-      column(2,textInput('input_Id','Input_Id:',value = 'Trx')),
-    ),
-    fluidRow(
-      verbatimTextOutput('input_Id_type'),
-    ),
-    fluidRow(
-      verbatimTextOutput('NCBI_id')
-    ),
-    fluidRow(
-      verbatimTextOutput('Silkdb3.0id')
-    ),
-    fluidRow(
-      verbatimTextOutput('KaikobaseID')
-    ),
-    fluidRow(
-      verbatimTextOutput('SilkbaseID')
-    ),
-    fluidRow(
-      verbatimTextOutput('ENTREZID')
-    ),
-    fluidRow(
-      verbatimTextOutput('Alias')
-    ),
-    fluidRow(
-      verbatimTextOutput('GENENAME')
-    ),
-    fluidRow(
-      verbatimTextOutput('REFSEQ')
-    ),
-    fluidRow(
-      verbatimTextOutput('Gene_location')
-    ),
-    fluidRow(
-      verbatimTextOutput('GO_infomation'),
-      div(
-        tableOutput('GO'),
-        style = "font-size:80%"
-      )
-    ),
-    fluidRow(
-      verbatimTextOutput('KEGG_infomation'),
-      div(
-        tableOutput('KEGG'),
-        style = "font-size:80%"
-      )
-    ),
-    fluidRow(
-      verbatimTextOutput('Protein_domain_infomation'),
-      div(
-        tableOutput('domian'),
-        style = "font-size:80%"
-      ),
-      div(
-        uiOutput("Protein_domain_note"),
-        style = "font-size:70%"
-      ),
-    ),
-    fluidRow(
-      verbatimTextOutput('paper_info'),
-      div(
-        tableOutput('PMID'),
-        style = "font-size:80%"
-      ),
-    ),
-    fluidRow(
-      verbatimTextOutput('des'),
-    ),
-    fluidRow(
-      verbatimTextOutput('Summary'),
-      tags$style(type='text/css', '#txt_out {white-space: pre-wrap;}')
-    ),
-    fluidRow(
-      div(
-        selectInput("homolog_all", "  Choose species", colnames(KWMT2NCBI)[20:7],selected = 'Drosophila_melanogaster'),
-        style = "font-size:80%"
-      )
-    ),
-    fluidRow(
-      verbatimTextOutput('homolog'),
-    ),
-    helpText('If you have any question,please contact kongyunhui1@gmail.com'),
-    tags$style(type="text/css",
-               ".shiny-output-error { visibility: hidden; }",
-               ".shiny-output-error:before { visibility: hidden; }"
-    )
+            helpText('Input gene which you want to search, several froms are supported, sush as BMSK0000001,KWMTBOMO00001,BMgn002073,LOC119629070,trx,NM_001042449.1 ...'),
+            fluidRow(
+              column(2,textInput('input_Id','Input_Id:',value = 'Trx')),
+            ),
+            fluidRow(
+              verbatimTextOutput('input_Id_type'),
+            ),
+            fluidRow(
+              verbatimTextOutput('NCBI_id')
+            ),
+            fluidRow(
+              verbatimTextOutput('Silkdb3.0id')
+            ),
+            fluidRow(
+              verbatimTextOutput('KaikobaseID')
+            ),
+            fluidRow(
+              verbatimTextOutput('SilkbaseID')
+            ),
+            fluidRow(
+              verbatimTextOutput('ENTREZID')
+            ),
+            fluidRow(
+              verbatimTextOutput('Alias')
+            ),
+            fluidRow(
+              verbatimTextOutput('GENENAME')
+            ),
+            fluidRow(
+              verbatimTextOutput('REFSEQ')
+            ),
+            fluidRow(
+              verbatimTextOutput('Gene_location')
+            ),
+            fluidRow(
+              verbatimTextOutput('GO_infomation'),
+              div(
+                tableOutput('GO'),
+                style = "font-size:80%"
+              )
+            ),
+            fluidRow(
+              verbatimTextOutput('KEGG_infomation'),
+              div(
+                tableOutput('KEGG'),
+                style = "font-size:80%"
+              )
+            ),
+            fluidRow(
+              verbatimTextOutput('Protein_domain_infomation'),
+              div(
+                tableOutput('domian'),
+                style = "font-size:80%"
+              ),
+              div(
+                uiOutput("Protein_domain_note"),
+                style = "font-size:70%"
+              ),
+            ),
+            fluidRow(
+              verbatimTextOutput('paper_info'),
+              div(
+                tableOutput('PMID'),
+                style = "font-size:80%"
+              ),
+            ),
+            fluidRow(
+              verbatimTextOutput('des'),
+            ),
+            fluidRow(
+              verbatimTextOutput('Summary'),
+              tags$style(type='text/css', '#txt_out {white-space: pre-wrap;}')
+            ),
+            fluidRow(
+              div(
+                selectInput("homolog_all", "  Choose species", colnames(KWMT2NCBI)[20:7],selected = 'Drosophila_melanogaster'),
+                style = "font-size:80%"
+              )
+            ),
+            fluidRow(
+              verbatimTextOutput('homolog'),
+            ),
+            helpText('If you have any question,please contact kongyunhui1@gmail.com'),
+            tags$style(type="text/css",
+                       ".shiny-output-error { visibility: hidden; }",
+                       ".shiny-output-error:before { visibility: hidden; }"
+            )
     ),
     
     #### ID_transform tab content------
@@ -306,6 +342,18 @@ body <- dashboardBody(
             ),
             fluidRow(
               selectInput('convert_type','Select the conversion type',choices = all_choices)
+            ),
+            fluidRow(
+              column(
+                3,
+                progressBar(
+                  id = "pb",
+                  value = 0,
+                  total = 100,
+                  title = "",
+                  display_pct = TRUE
+                )
+              )
             ),
             fluidRow(
               'Preview the results'
@@ -323,7 +371,7 @@ body <- dashboardBody(
     #### ID_enrichment tab content------
     tabItem(tabName = "ID_enrichment",
             fluidRow(
-              h2('Please input NCBI id')
+              helpText('Please input NCBI id')
             ),
             fluidRow(
               fileInput("enrich_upload", NULL, buttonLabel = "Upload...", multiple = FALSE,accept = c(".xls", ".xlsx"))
@@ -343,7 +391,7 @@ body <- dashboardBody(
               style = "font-size:80%"
             ),
             downloadButton("Enrichment_download", "Download enrichment result")     
-      
+            
     )
   )
 )
@@ -352,7 +400,7 @@ ui <-  dashboardPage(header, sidebar, body,
                      skin = "green")
 
 ######Web back-------
-server <- function(input, output){
+server <- function(input, output,session = session){
   #############sever of ID search--------
   NCBI_ID <- reactive(find_gene(req(input$input_Id)))
   observeEvent(input$input_Id,{
@@ -477,11 +525,11 @@ server <- function(input, output){
   })
   convert_res <- reactive({
     req(input$convert_type)
-    convert_df <- data() %>% mutate(ID_conversion(data(),input$convert_type)) %>%
-      data.table::setnames(getcolnames(input$convert_type))%>% 
+    convert_df <- data() %>% mutate(ID_conversion(data(),input$convert_type,session = session)) %>%
+      data.table::setnames(getcolnames(input$convert_type)) %>%
       mutate(Description = map_chr(.data[['NCBI_id']],SYMBOL2GENENAME))
   })
-
+  
   output$preview <- renderDataTable({
     convert_res()
   },

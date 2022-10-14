@@ -1,6 +1,8 @@
 library(shiny)
 library(tidyverse)
 library(shinydashboard)
+library(shinyWidgets)
+library(dashboardthemes)
 
 get_list <- function(gene_name,df = all_gene_cq ){
   df <- data.frame(
@@ -114,7 +116,32 @@ sidebar <- dashboardSidebar(
   
 )
 
+themes <- column(3,
+                 img(src='icon.png', align = "right",width="80",height="80"),
+                 dropdownButton(
+                   label = 'Themes',
+                   circle = F,
+                   right = T,
+                   radioButtons(
+                     inputId = 'theme',
+                     label = NULL,
+                     choices =  c(
+                       'blue_gradient',
+                       'boe_website',
+                       'grey_light',
+                       'grey_dark',
+                       'onenote',
+                       'poor_mans_flatly',
+                       'purple_gradient'
+                     )
+                   )
+                 ))
+
+
+
 body <- dashboardBody(
+
+  uiOutput("myTheme"),
   ##change the CSS format of sidebar 
   tags$head( 
     tags$style(HTML(".main-sidebar { font-size: 20px };")) #change the font size to 20
@@ -130,7 +157,8 @@ body <- dashboardBody(
               ),
               column(3,
                      downloadButton("download_test_1", "Download excel format")
-              )
+              ),
+              themes
             ),
             div(
               fluidRow(
@@ -168,7 +196,8 @@ body <- dashboardBody(
               ),
               column(3,
                      downloadButton("download_test_2", "Download excel format")
-              )
+              ),
+              themes
             ),
             div(
               fluidRow(
@@ -206,8 +235,11 @@ body <- dashboardBody(
   )
 )
 
-ui <-  dashboardPage(header, sidebar, body,
-                     skin = "purple")
+ui <-  dashboardPage(header, sidebar, body)
+
+
+
+
 
 server <- function(input, output) {
   data <- reactive({
@@ -329,6 +361,8 @@ server <- function(input, output) {
       file.copy("format_2.xlsx", file)
     }
   )
+  
+  output$myTheme <- renderUI(shinyDashboardThemes(theme = input$theme))
 }
 
 shinyApp(ui, server)

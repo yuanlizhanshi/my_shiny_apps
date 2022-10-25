@@ -57,22 +57,21 @@ bar_plot_1 <- function(test_res){
   get_maxfold <- function(test_res){
     df1 <- test_res %>% group_by(gene_name) %>% summarise(max_fold = max(Fold))
     df2 <- test_res %>% group_by(gene_name) %>% summarise(max_SD = max(SD))
-    return(df1$max_fold+df2$max_SD +0.2)
+    return(df1$max_fold+df2$max_SD +0.1)
   }
   get_ano <- function(test_res){
     df1 <- test_res %>% group_by(gene_name) %>% summarise(ano = unique(significant))
     return(df1$ano)
   }
   ggplot(test_res,aes(gene_name,Fold,fill= sample)) + 
-    geom_bar(stat = "identity",width = 0.3,position = position_dodge(width = 0.4)) +
+    geom_bar(stat = "identity",width = 0.5,position = position_dodge(width = 0.55)) +
     geom_errorbar(aes(ymin = Fold - SD, ymax = Fold + SD),
-                  position=position_dodge(width=0.4), 
+                  position=position_dodge(width=0.55), 
                   width=0.1,size=0.5,colour="black")  +
     labs(x = '',y = 'Relative expression levels')+
-    ggprism::theme_prism()+
-    scale_fill_manual(values = c("#989898","#333333"))
+    ggprism::theme_prism(base_size = 14)+
+    scale_fill_manual(values = c("#989898","#333333"))+
     theme(axis.title.x = element_blank(),
-          aspect.ratio = 1.3,
           axis.text.x = element_text(angle = 45))+
     ggpubr::geom_signif(y_position = get_maxfold(test_res), 
                         xmin = rep(1:length(get_ano(test_res))) -0.2, 
@@ -89,15 +88,14 @@ plot_df_2 <- function(df3){
 }
 bar_plot_2 <- function(test_res){
   ggplot(test_res,aes(gene_name,Fold,fill= sample)) + 
-    geom_bar(stat = "identity",position = position_dodge(width = 1)) + theme_classic() +
+    geom_bar(stat = "identity",width = 0.5,position = position_dodge(width = 0.55)) +
     geom_errorbar(aes(ymin = Fold - SD, ymax = Fold + SD),
-                  position=position_dodge(width=1), 
-                  width=0.3,size=0.3,colour="black") +
+                  position=position_dodge(width=0.55), 
+                  width=0.1,size=0.5,colour="black") +
     labs(x = '',y = 'Relative expression levels')+
     theme(axis.title.x = element_blank(),
-          aspect.ratio = 1.3,
           axis.text.x = element_text(angle = 45))+
-    ggprism::theme_prism()
+      ggprism::theme_prism(base_size = 14)
 }
 
 

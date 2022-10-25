@@ -64,14 +64,13 @@ bar_plot_1 <- function(test_res){
     return(df1$ano)
   }
   ggplot(test_res,aes(gene_name,Fold,fill= sample)) + 
-    geom_bar(stat = "identity",position = position_dodge(width = 1)) + theme_classic() +
+    geom_bar(stat = "identity",width = 0.3,position = position_dodge(width = 0.4)) +
     geom_errorbar(aes(ymin = Fold - SD, ymax = Fold + SD),
-                  position=position_dodge(width=1), 
-                  width=0.3,size=0.3,colour="black") +
+                  position=position_dodge(width=0.4), 
+                  width=0.1,size=0.5,colour="black")  +
     labs(x = '',y = 'Relative expression levels')+
-    guides()+
     ggprism::theme_prism()+
-    scale_fill_manual(values = c("#69b3a2","#836FFF"))+
+    scale_fill_manual(values = c("#989898","#333333"))
     theme(axis.title.x = element_blank(),
           aspect.ratio = 1.3,
           axis.text.x = element_text(angle = 45))+

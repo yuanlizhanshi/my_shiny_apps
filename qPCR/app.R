@@ -173,7 +173,10 @@ body <- dashboardBody(
             ),
             tableOutput("results_1"),
             fluidRow(
-              plotOutput("barplots_1")
+              column(
+                6, 
+                div(plotOutput("barplots_1"),align = "center")
+              )
             ),
             fluidRow(
               downloadButton('downloadPlot', 'Download Plot')
@@ -219,7 +222,10 @@ body <- dashboardBody(
             ),
             tableOutput("ttest"),
             fluidRow(
+              column(
+                8, align="center",
               plotOutput("barplots_2")
+              )
             ),
             fluidRow(
               downloadButton('downloadPlot_2', 'Download Plot')

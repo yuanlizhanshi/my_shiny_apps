@@ -310,9 +310,15 @@ server <- function(input, output) {
   )
   p_value <- reactive({
     res1 <- calculation_process2() %>% 
-      rstatix::pairwise_t_test(two_NegdeltadeltaCT ~ sample, paired =T,p.adjust.method = "bonferroni") %>% 
-      select(2,3,8) 
-    res1$significant <-  determine_p(round(res1[[3]],4))
+      group_split(gene_name) %>% 
+      setNames(unique(calculation_process2()$gene_name)) %>%
+      map_dfr(function(df){
+        df1 <- df %>% 
+          rstatix::pairwise_t_test(two_NegdeltadeltaCT ~ sample, paired = F,p.adjust.method = "bonferroni") %>% 
+          select(2,3,8) 
+        df1$significant <-  determine_p(round(df1[[3]],4))
+        return(df1)
+      },.id = 'gene') 
     return(res1)
   })
   output$preview_2 <- renderDataTable({

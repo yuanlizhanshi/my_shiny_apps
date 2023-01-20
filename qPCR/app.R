@@ -145,7 +145,6 @@ body <- dashboardBody(
   
   tabItems(
     # Paired_sample tab content
-    
     tabItem(tabName = "Paired_sample",
             fluidRow(
               column(6,

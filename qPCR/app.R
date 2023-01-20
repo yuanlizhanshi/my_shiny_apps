@@ -137,7 +137,6 @@ themes <- column(3,
 
 
 body <- dashboardBody(
-
   uiOutput("myTheme"),
   ##change the CSS format of sidebar 
   tags$head( 

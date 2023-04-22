@@ -1,0 +1,4 @@
+user	pass_word	permissions
+admin	admin123456	admin
+standard1	abc123456	standard
+standard2	abcd123456	standard

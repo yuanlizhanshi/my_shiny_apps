@@ -3,7 +3,7 @@ Some Web tools created by R package shiny
 ## For gene information search and id batch conversion
 Your could type any gene information into the search box 
 
-http://124.223.104.41:3838/id/
+https://singlecellatlas.top/id/
 
 
 Only suppport NCBI id into Silkdb3.0 and reciprocally or NCBI id into kaikibase id reciprocally.
